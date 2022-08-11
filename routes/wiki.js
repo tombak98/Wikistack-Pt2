@@ -2,6 +2,8 @@ const express = require("express");
 const router = express.Router();
 const { db, Page, User, Tag } = require("../models");
 const { main, addPage, editPage, wikiPage, notFoundPage } = require("../views");
+const searchList = require("../views/searchList.js")
+const similarPage = require("../views/similarPage.js")
 
 // GET /wiki
 router.get("/", async (req, res, next) => {
@@ -79,6 +81,24 @@ router.get("/add", (req, res) => {
   res.send(addPage());
 });
 
+// GET /wiki/search
+router.get("/search", async (req,res,next) => {
+  let tagName = req.query.tag
+  try {
+    const tag = await Tag.findOne({
+      where: {
+        name: tagName
+      },
+      include: {
+        model: Page
+      }
+    })
+    res.send(searchList(tag, tag.pages))
+  } catch (error) {
+    next(error)
+  }
+})
+
 // GET /wiki/:slug
 router.get("/:slug", async (req, res, next) => {
   try {
@@ -91,16 +111,39 @@ router.get("/:slug", async (req, res, next) => {
         as: 'author'
       }
     });
+    const tags = await page.getTags()
     if (page === null) {
       res.status(404).send(notFoundPage())
     } else {
       // const author = await page.getAuthor();
-      res.send(wikiPage(page, page.author));
+      res.send(wikiPage(page, page.author, tags));
     }
   } catch (error) {
     next(error);
   }
 });
+
+// GET /wiki/:slug/similar
+router.get('/:slug/similar', async (req,res,next) => {
+  try {
+    const page = await Page.findOne({
+      where: {
+        slug: req.params.slug
+      },
+      include: {
+        model: Tag
+      }
+    })
+    let tagNames = [];
+    for (let i = 0; i < page.tags.length; i++) {
+      tagNames.push(page.tags[i].name)
+    }
+    let similarPages = await page.findSimilar(tagNames)
+    res.send(similarPage(page, similarPages))
+  } catch(error) {
+    next(error)
+  }
+})
 
 // GET /wiki/:slug/edit
 router.get("/:slug/edit", async (req, res, next) => {

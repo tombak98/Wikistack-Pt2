@@ -1,4 +1,5 @@
 const Sequelize = require("sequelize");
+const { Op } = require("sequelize")
 
 const db = new Sequelize("postgres://localhost:5432/wikistack", {
   logging: false
@@ -59,6 +60,27 @@ User.hasMany(Page, {foreignKey: "authorId"})
 //association between tag and page
 Page.belongsToMany(Tag, {through: 'PageTag'})
 Tag.belongsToMany(Page, {through: 'PageTag'})
+
+Page.findByTag = function() {
+}
+
+Page.prototype.findSimilar = function(tags) {
+  return Page.findAll({
+    where: {
+      id: {
+        [Op.ne]: this.id
+      }
+    },
+    include: {
+      model: Tag,
+      where: {
+        name: {
+          [Op.in]: tags
+        }
+      }
+    }
+  });
+}
 
 module.exports = {
   db,
